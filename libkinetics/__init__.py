@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 from scipy import stats, optimize
 import numpy as np
@@ -9,6 +10,7 @@ import csv
 class Replicate():
 
     def __init__(self, x, y, owner):
+        self.logger = owner.logger
         self.x = x
         self.y = y
         self.owner = owner
@@ -36,6 +38,7 @@ class Replicate():
 class Measurement():
 
     def __init__(self, x, y, conc, conc_unit, owner):
+        self.logger = owner.logger
         self.concentration = float(conc)
         self.concentration_unit = conc_unit
         self.x = x
@@ -89,7 +92,9 @@ class Measurement():
 
 class Experiment():
 
-    def __init__(self, data_files, xlim, do_hill=False):
+    def __init__(self, data_files, xlim, do_hill=False, logger=None):
+
+        self.logger = logger
 
         # collction of indepentend measurements
         self.measurements = []
@@ -163,7 +168,11 @@ class Experiment():
                     'perr': perr,
                     'x': x}
         except:
-            print('Calculation of Hill kinetics failed!')
+            msg = 'Calculation of Michaelis-Menten kinetics failed!'
+            if self.logger:
+                self.logger.error('ERROR: {}'.format(msg))
+            else:
+                print(msg)
             return None
 
     def do_hill_kinetics(self):
@@ -185,7 +194,11 @@ class Experiment():
                     'h': h,
                     'x': x}
         except:
-            print('Calculation of Hill kinetics failed!')
+            msg = 'Calculation of Hill kinetics failed!'
+            if self.logger:
+                self.logger.error('ERROR: {}'.format(msg))
+            else:
+                print(msg)
             return None
 
     def plot_kinetics(self, outpath):
@@ -200,12 +213,16 @@ class Experiment():
                     fmt='ok', ms=3, fillstyle='none', label="Data with error")
 
         if self.mm:
-            ax.plot(self.mm['x'],
-                    (self.mm['vmax']*self.mm['x'])/(self.mm['Km']+self.mm['x']), 'b-', label="Michaelis-Menten")
+            y = self.mm_kinetics_function(self.mm['x'],
+                                          self.mm['vmax'],
+                                          self.mm['Km'])
+            ax.plot(self.mm['x'], y, 'b-', label="Michaelis-Menten")
         if self.hill:
-            ax.plot(self.hill['x'],
-                    ((self.hill['vmax']*(self.hill['x']**self.hill['h'])) /
-                        (self.hill['Kprime'] + (self.hill['x']**self.hill['h']))), 'g-', label="Hill")
+            y = self.hill_kinetics_function(self.hill['x'],
+                                            self.hill['vmax'],
+                                            self.hill['Kprime'],
+                                            self.hill['h'])
+            ax.plot(self.hill['x'], y, 'g-', label="Hill")
 
         ax.legend(loc='best', fancybox=True)
         plt.savefig('{}/kinetics.png'.format(outpath), bbox_inches='tight')
