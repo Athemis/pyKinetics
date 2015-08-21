@@ -3,14 +3,15 @@
 
 from scipy import stats, optimize
 import numpy as np
-import matplotlib.pyplot as plt
-import csv
+import logging
+import warnings
 
 
 class Replicate():
 
-    def __init__(self, x, y, owner):
+    def __init__(self, num, x, y, owner):
         self.logger = owner.logger
+        self.num = num + 1
         self.x = x
         self.y = y
         self.owner = owner
@@ -23,14 +24,40 @@ class Replicate():
         x_for_fit = np.take(self.x, ind_min_max)
         y_for_fit = np.take(self.y, ind_min_max)
 
+        # ignore warnings about invalid values in sqrt during linear fitting
+        # they occur frequently and will just clutter the cli
+        warnings.filterwarnings('ignore',
+                                category=RuntimeWarning,
+                                message='invalid value encountered in sqrt')
+
         (slope, intercept,
             r_value,
             p_value,
             std_err) = stats.linregress(x_for_fit, y_for_fit)
 
+        r_squared = r_value**2
+        conc = '{} {}'.format(self.owner.concentration,
+                              self.owner.concentration_unit)
+
+        self.logger.info('Linear fit for {} #{}:'.format(conc, self.num))
+        if r_squared < 0.9:
+            msg = '    r-squared: {} < 0.9; Check fit manually!'
+            self.logger.warning(msg.format(round(r_squared, 4)))
+        else:
+            msg = '    r-squared: {}'
+            self.logger.info(msg.format(round(r_squared, 4)))
+        self.logger.info('    slope: {}'.format(slope))
+        if slope < 0:
+            self.logger.warning('Slope is negative. Will use absolute value '
+                                'for further calculations!')
+        self.logger.info('    intercept: {}'.format(slope))
+
+
+
         return {'slope': slope,
                 'intercept': intercept,
                 'r_value': r_value,
+                'r_squared': r_squared,
                 'p_value': p_value,
                 'std_err': std_err}
 
@@ -54,7 +81,10 @@ class Measurement():
         length_x, num_replicates = self.y.shape
 
         for n in range(num_replicates):
-            self.replicates.append(Replicate(self.x, self.y[:, n:n+1], self))
+            self.replicates.append(Replicate(n,
+                                             self.x,
+                                             self.y[:, n:n+1],
+                                             self))
 
         for r in self.replicates:
             self.slopes.append(r.fitresult['slope'])
@@ -62,25 +92,12 @@ class Measurement():
         self.avg_slope = np.average(self.slopes)
         self.avg_slope_err = np.std(self.slopes)
 
-    def plot(self, outpath):
-        fig, ax = plt.subplots()
-        ax.set_xlabel('Time [s]')
-        ax.set_ylabel('Absorption (340 nm) [Au]')
-        ax.set_title('Linear regression {} {}'.format(self.concentration,
-                                                      self.concentration_unit))
-
-        for r in self.replicates:
-            ax.plot(r.x, r.y, linestyle='None',
-                    marker='o', ms=3, fillstyle='none')
-            ax.plot(r.x, r.fitresult['slope']*r.x+r.fitresult['intercept'],
-                    'k-')
-            ax.axvspan(self.xlim[0], self.xlim[1], facecolor='0.8', alpha=0.5)
-
-        plt.savefig('{}/fit_{}_{}.png'.format(outpath,
-                                              self.concentration,
-                                              self.concentration_unit),
-                    bbox_inches='tight')
-        plt.close(fig)
+        self.logger.info('Average slope: {} ± {}'.format(self.avg_slope,
+                                                         self.avg_slope_err))
+        if self.avg_slope < 0:
+            self.logger.warning('Avererage slope is negative. Will use '
+                                'absolute value for further calculations!')
+        self.logger.info('-----')
 
     def get_results(self):
         results = []
@@ -92,12 +109,17 @@ class Measurement():
 
 class Experiment():
 
-    def __init__(self, data_files, xlim, do_hill=False, logger=None):
+    def __init__(self, data_files, xlim, do_hill=False, fit_to_replicates=False, logger=None):
 
-        self.logger = logger
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(__name__)
 
         # collction of indepentend measurements
         self.measurements = []
+
+        self.fit_to_replicates = fit_to_replicates
         # dictionary to store data for the kinetics calculation
         self.raw_kinetic_data = {'x': [],
                                  'y': [],
@@ -125,11 +147,18 @@ class Experiment():
 
         # iterate over all measurements
         for m in self.measurements:
-            # extract relevant data for kinetics calculation (concentration,
-            # average slope and error)
-            self.raw_kinetic_data['x'].append(m.concentration)
-            self.raw_kinetic_data['y'].append(np.absolute(m.avg_slope))
-            self.raw_kinetic_data['yerr'].append(m.avg_slope_err)
+            if self.fit_to_replicates:
+                for r in m.replicates:
+                    self.raw_kinetic_data['x'].append(m.concentration)
+                    self.raw_kinetic_data['y'].append(np.absolute(r.fitresult['slope']))
+                    self.raw_kinetic_data['yerr'].append(r.fitresult['std_err'])
+
+            else:
+                # extract relevant data for kinetics calculation
+                # (concentration, average slope and error)
+                self.raw_kinetic_data['x'].append(m.concentration)
+                self.raw_kinetic_data['y'].append(np.absolute(m.avg_slope))
+                self.raw_kinetic_data['yerr'].append(m.avg_slope_err)
 
         # calculate kinetics
         self.mm = self.do_mm_kinetics()
@@ -163,6 +192,10 @@ class Experiment():
             Km = popt[1]
             x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
 
+            self.logger.info('Michaelis-Menten Kinetics:')
+            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+            self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
+
             return {'vmax': float(vmax),
                     'Km': float(Km),
                     'perr': perr,
@@ -170,7 +203,7 @@ class Experiment():
         except:
             msg = 'Calculation of Michaelis-Menten kinetics failed!'
             if self.logger:
-                self.logger.error('ERROR: {}'.format(msg))
+                self.logger.error('{}'.format(msg))
             else:
                 print(msg)
             return None
@@ -188,6 +221,11 @@ class Experiment():
 
             x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
 
+            self.logger.info('Hill Kinetics:')
+            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+            self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
+            self.logger.info('    h: {} ± {}'.format(h, perr[2]))
+
             return {'vmax': float(vmax),
                     'Kprime': float(Kprime),
                     'perr': perr,
@@ -196,66 +234,7 @@ class Experiment():
         except:
             msg = 'Calculation of Hill kinetics failed!'
             if self.logger:
-                self.logger.error('ERROR: {}'.format(msg))
+                self.logger.error('{}'.format(msg))
             else:
                 print(msg)
             return None
-
-    def plot_kinetics(self, outpath):
-        fig, ax = plt.subplots()
-        ax.set_xlabel('c [mM]')
-        ax.set_ylabel('dA/dt [Au/s]')
-        ax.set_title('Kinetics')
-
-        ax.errorbar(self.raw_kinetic_data['x'],
-                    self.raw_kinetic_data['y'],
-                    yerr=self.raw_kinetic_data['yerr'],
-                    fmt='ok', ms=3, fillstyle='none', label="Data with error")
-
-        if self.mm:
-            y = self.mm_kinetics_function(self.mm['x'],
-                                          self.mm['vmax'],
-                                          self.mm['Km'])
-            ax.plot(self.mm['x'], y, 'b-', label="Michaelis-Menten")
-        if self.hill:
-            y = self.hill_kinetics_function(self.hill['x'],
-                                            self.hill['vmax'],
-                                            self.hill['Kprime'],
-                                            self.hill['h'])
-            ax.plot(self.hill['x'], y, 'g-', label="Hill")
-
-        ax.legend(loc='best', fancybox=True)
-        plt.savefig('{}/kinetics.png'.format(outpath), bbox_inches='tight')
-        plt.close(fig)
-
-    def write_data(self, outpath):
-
-        with open('{}/results.csv'.format(outpath),
-                  'w',
-                  newline='\n') as csvfile:
-
-            writer = csv.writer(csvfile, dialect='excel-tab')
-            writer.writerow(['# LINEAR FITS'])
-            writer.writerow([])
-            writer.writerow(['# concentration',
-                             'avg. slope',
-                             'slope std_err',
-                             'replicates (slope, intercept and r value)'])
-            for m in self.measurements:
-                row = [m.concentration, m.avg_slope, m.avg_slope_err]
-                for r in m.replicates:
-                    row.append(r.fitresult['slope'])
-                    row.append(r.fitresult['intercept'])
-                    row.append(r.fitresult['r_value'])
-                writer.writerow(row)
-
-            writer.writerow([])
-            if self.mm:
-                writer.writerow(['# MICHAELIS-MENTEN KINETICS'])
-                writer.writerow(['# vmax', 'Km'])
-                writer.writerow([self.mm['vmax'], self.mm['Km']])
-            if self.hill:
-                writer.writerow(['# HILL KINETICS'])
-                writer.writerow(['# vmax', 'Kprime', 'h'])
-                writer.writerow([self.hill['vmax'], self.hill['Kprime'],
-                                 self.hill['h']])
