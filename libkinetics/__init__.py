@@ -48,8 +48,8 @@ class Replicate():
             self.logger.info(msg.format(round(r_squared, 4)))
         self.logger.info('    slope: {}'.format(slope))
         if slope < 0:
-            self.logger.warning('Slope is negative. Will use absolute value '
-                                'for further calculations!')
+            self.logger.warning('    Slope is negative. Will use absolute '
+                                'value for further calculations!')
         self.logger.info('    intercept: {}'.format(slope))
 
 
