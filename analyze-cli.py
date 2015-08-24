@@ -258,9 +258,9 @@ def main():
                                          logger=logger,
                                          fit_to_replicates=fit_to_replicates)
             ehlp = ExperimentHelper(exp, logger)
-            logger.info('Plotting linear fits to data')
+            logger.info('Plotting linear fits')
             ehlp.plot_data(exp, str(output_path))
-            logger.info('Plotting kinetics fit(s)')
+            logger.info('Plotting kinetic fit(s)')
             ehlp.plot_kinetics(exp, str(output_path))
             logger.info('Writing results to results.csv')
             ehlp.write_data(exp, str(output_path))
