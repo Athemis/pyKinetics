@@ -42,8 +42,11 @@ class Replicate():
                               self.owner.concentration_unit)
 
         self.logger.info('Linear fit for {} #{}:'.format(conc, self.num))
-        if r_squared < 0.9:
+        if r_squared < 0.9 and r_squared > 0.7:
             msg = '    r-squared: {} < 0.9; Check fit manually!'
+            self.logger.warning(msg.format(round(r_squared, 4)))
+        elif r_squared < 0.7:
+            msg = '    r-squared: {} < 0.7; Linear fit probably failed!'
             self.logger.warning(msg.format(round(r_squared, 4)))
         else:
             msg = '    r-squared: {}'
