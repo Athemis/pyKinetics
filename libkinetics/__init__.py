@@ -107,7 +107,8 @@ class Measurement():
 
 class Experiment():
 
-    def __init__(self, data_files, xlim, do_hill=False, fit_to_replicates=False, logger=None):
+    def __init__(self, data_files, xlim, do_hill=False,
+                 fit_to_replicates=False, logger=None):
 
         if logger:
             self.logger = logger
