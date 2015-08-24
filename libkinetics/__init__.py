@@ -9,7 +9,7 @@ import warnings
 
 class Replicate():
     """
-
+    Represents a single replicate within a measurement
     """
 
     def __init__(self, num, xy, owner):
@@ -66,6 +66,9 @@ class Replicate():
 
 
 class Measurement():
+    """
+    Represents a single measurement within an experiment.
+    """
 
     def __init__(self, xy, conc, conc_unit, owner):
         self.logger = owner.logger
@@ -109,6 +112,21 @@ class Measurement():
 
 
 class Experiment():
+    """
+    Represents the actual experiment.
+
+    Consists of several Measurement objects.
+
+    Args:
+        data_files: list containing csv-formatted data files
+        xlim: tuple of float values defining the lower and upper bound for
+            linear fitting of v0
+        do_hill:  boolean to define whether to fit Hill-type kinetics in
+            addition to Michaelis-Menten kinetics. Defaults to False
+        fit_to_replicates: boolean to define wheter to fit to individual
+            replicates instead of the avarage slope. Defaults to False
+        logger: logging.Logger instance. If not given, a new logger is created
+    """
 
     def __init__(self, data_files, xlim, do_hill=False,
                  fit_to_replicates=False, logger=None):
