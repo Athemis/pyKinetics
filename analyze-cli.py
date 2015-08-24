@@ -4,13 +4,35 @@
 import argparse
 import logging
 import csv
-import matplotlib.pyplot as plt
-import numpy as np
-
 from pathlib import Path
-from colorlog import ColoredFormatter
 
-import libkinetics
+# check for third party modules. Matplotlib and NumPy are essential
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print('----- Matplotlib must be installed! -----')
+
+try:
+    import numpy as np
+except ImportError:
+    print('----- NumPy must be installed! -----')
+
+# colorlog is optional; inform user of non-colored output if not found
+try:
+    from colorlog import ColoredFormatter
+    COLORED_LOG = True
+except ImportError:
+    COLORED_LOG = False
+    print('----- Module colorlog not found. Console output will not be '
+          'colored! -----')
+    pass
+
+# check for libkinetics; if not found, there is something wrong with the
+# installation if pyKinetics
+try:
+    import libkinetics
+except ImportError:
+    print('---- Cannot find libkinetics! Check your installation! -----')
 
 
 class ExperimentHelper():
@@ -150,17 +172,23 @@ def initialize_logger():
     'fh' which logs to a log file and 'ch' which logs to standard output.
     :return logger: returns a logger instance
     """
-    fmt = '%(log_color)s%(levelname)-8s%(reset)s %(message)s'
-    formatter = ColoredFormatter(fmt,
-                                 datefmt=None,
-                                 reset=True,
-                                 log_colors={'DEBUG': 'cyan',
-                                             'INFO': 'green',
-                                             'WARNING': 'yellow',
-                                             'ERROR': 'red',
-                                             'CRITICAL': 'red,bg_white'},
-                                 secondary_log_colors={},
-                                 style='%')
+    if COLORED_LOG:
+        fmt = '%(log_color)s%(levelname)-8s%(reset)s %(message)s'
+        formatter = ColoredFormatter(fmt,
+                                     datefmt=None,
+                                     reset=True,
+                                     log_colors={'DEBUG': 'cyan',
+                                                 'INFO': 'green',
+                                                 'WARNING': 'yellow',
+                                                 'ERROR': 'red',
+                                                 'CRITICAL': 'red,bg_white'},
+                                     secondary_log_colors={},
+                                     style='%')
+    else:
+        fmt = '%(levelname)-8s%(message)s'
+        formatter = logging.Formatter(fmt,
+                                      datefmt=None,
+                                      style='%')
 
     logging.captureWarnings(True)
     logger = logging.getLogger('pyKinetics-cli')
@@ -190,8 +218,8 @@ def main():
     args = parse_arguments()
     # initialize logger
     logger = initialize_logger()
-
-    xlim = (args.start, args.end)
+    # grab fitting window from provided arguments
+    fitting_window = (args.start, args.end)
 
     if args.hill:
         do_hill = args.hill
@@ -225,7 +253,7 @@ def main():
                 msg = '{} including Hill kinetics'.format(msg)
             logger.info('{}'.format(msg))
             exp = libkinetics.Experiment(data_files,
-                                         xlim,
+                                         fitting_window,
                                          do_hill=do_hill,
                                          logger=logger,
                                          fit_to_replicates=fit_to_replicates)
