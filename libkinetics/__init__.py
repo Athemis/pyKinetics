@@ -8,12 +8,14 @@ import warnings
 
 
 class Replicate():
+    """
 
-    def __init__(self, num, x, y, owner):
+    """
+
+    def __init__(self, num, xy, owner):
         self.logger = owner.logger
         self.num = num + 1
-        self.x = x
-        self.y = y
+        self.x, self.y = xy
         self.owner = owner
         self.xlim = owner.xlim
         self.fitresult = self.fit()
@@ -62,12 +64,11 @@ class Replicate():
 
 class Measurement():
 
-    def __init__(self, x, y, conc, conc_unit, owner):
+    def __init__(self, xy, conc, conc_unit, owner):
         self.logger = owner.logger
         self.concentration = float(conc)
         self.concentration_unit = conc_unit
-        self.x = x
-        self.y = y
+        self.x, self.y = xy
         self.replicates = []
         self.owner = owner
         self.xlim = owner.xlim
@@ -80,8 +81,7 @@ class Measurement():
 
         for n in range(num_replicates):
             self.replicates.append(Replicate(n,
-                                             self.x,
-                                             self.y[:, n:n+1],
+                                             (self.x, self.y[:, n:n+1]),
                                              self))
 
         for r in self.replicates:
@@ -141,7 +141,7 @@ class Experiment():
             x = tmp[:, 0]
             y = tmp[:, 1:]
             # create new measurement and append to list
-            measurement = Measurement(x, y, conc, unit, self)
+            measurement = Measurement((x, y), conc, unit, self)
             self.measurements.append(measurement)
 
         # iterate over all measurements
