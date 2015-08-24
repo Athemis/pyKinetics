@@ -48,11 +48,9 @@ class Replicate():
             self.logger.info(msg.format(round(r_squared, 4)))
         self.logger.info('    slope: {}'.format(slope))
         if slope < 0:
-            self.logger.warning('    Slope is negative. Will use absolute '
-                                'value for further calculations!')
+            self.logger.info('    Slope is negative. Will use absolute '
+                             'value for further calculations!')
         self.logger.info('    intercept: {}'.format(slope))
-
-
 
         return {'slope': slope,
                 'intercept': intercept,
@@ -95,8 +93,8 @@ class Measurement():
         self.logger.info('Average slope: {} ± {}'.format(self.avg_slope,
                                                          self.avg_slope_err))
         if self.avg_slope < 0:
-            self.logger.warning('Avererage slope is negative. Will use '
-                                'absolute value for further calculations!')
+            self.logger.info('Avererage slope is negative. Will use '
+                             'absolute value for further calculations!')
         self.logger.info('-----')
 
     def get_results(self):
@@ -150,8 +148,10 @@ class Experiment():
             if self.fit_to_replicates:
                 for r in m.replicates:
                     self.raw_kinetic_data['x'].append(m.concentration)
-                    self.raw_kinetic_data['y'].append(np.absolute(r.fitresult['slope']))
-                    self.raw_kinetic_data['yerr'].append(r.fitresult['std_err'])
+                    self.raw_kinetic_data['y'].append(
+                        np.absolute(r.fitresult['slope']))
+                    self.raw_kinetic_data['yerr'].append(
+                        r.fitresult['std_err'])
 
             else:
                 # extract relevant data for kinetics calculation
