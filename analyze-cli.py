@@ -5,6 +5,7 @@ import argparse
 import logging
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pathlib import Path
 from colorlog import ColoredFormatter
@@ -35,13 +36,15 @@ class ExperimentHelper():
 
             for r in m.replicates:
                 ax.plot(r.x, r.y, linestyle='None',
-                        marker='o', ms=3, fillstyle='none')
+                        marker='o', ms=3, fillstyle='none',
+                        label='replicate #{}'.format(r.num))
                 y = self.linear_regression_function(r.fitresult['slope'],
                                                     r.x,
                                                     r.fitresult['intercept'])
                 ax.plot(r.x, y, 'k-')
                 ax.axvspan(m.xlim[0], m.xlim[1], facecolor='0.8', alpha=0.5)
 
+            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
             plt.savefig('{}/fit_{}_{}.png'.format(outpath,
                                                   m.concentration,
                                                   m.concentration_unit),
@@ -107,6 +110,7 @@ class ExperimentHelper():
                 writer.writerow([exp.hill['vmax'], exp.hill['Kprime'],
                                  exp.hill['h']])
 
+
 def parse_arguments():
 
     parser = argparse.ArgumentParser()
@@ -122,6 +126,12 @@ def parse_arguments():
                         '--hill',
                         action='store_true',
                         help='compute additional kinetics using Hill equation')
+    parser.add_argument('start',
+                        type=np.float64,
+                        help='start of fitting window')
+    parser.add_argument('end',
+                        type=np.float64,
+                        help='end of fitting window')
     parser.add_argument('input',
                         type=str,
                         help='directory containing input files in csv format')
@@ -181,6 +191,8 @@ def main():
     # initialize logger
     logger = initialize_logger()
 
+    xlim = (args.start, args.end)
+
     if args.hill:
         do_hill = args.hill
     else:
@@ -213,7 +225,7 @@ def main():
                 msg = '{} including Hill kinetics'.format(msg)
             logger.info('{}'.format(msg))
             exp = libkinetics.Experiment(data_files,
-                                         (10, 25),
+                                         xlim,
                                          do_hill=do_hill,
                                          logger=logger,
                                          fit_to_replicates=fit_to_replicates)
