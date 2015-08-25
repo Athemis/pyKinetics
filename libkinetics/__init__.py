@@ -115,22 +115,43 @@ class Experiment():
     """
     Represents the actual experiment.
 
-    Consists of several Measurement objects.
+    Representation of a kinetics experiment. It consists of multiple
+    objects of type Measurement.
 
-    Args:
-        data_files: list containing csv-formatted data files
-        xlim: tuple of float values defining the lower and upper bound for
-            linear fitting of v0
-        do_hill:  boolean to define whether to fit Hill-type kinetics in
-            addition to Michaelis-Menten kinetics. Defaults to False
-        fit_to_replicates: boolean to define wheter to fit to individual
-            replicates instead of the avarage slope. Defaults to False
-        logger: logging.Logger instance. If not given, a new logger is created
+    Attributes:
+        logger: logging.Logger instance that is used for logging to console
+            and log file.
+        measurements: list of individual measurements of the experiment.
+            Usually defined by different substrate concentrations.
+        fit_to_replicates: whether to fit to individual replicates instead to
+            the average of each measurement.
+        raw_kinetic_data: dictionary storing x, y and std_err of each
+            measurement for fitting kinetic curves.
+        xlim: lower and upper bounds for calculating the v0 linear fit.
     """
 
     def __init__(self, data_files, xlim, do_hill=False,
                  fit_to_replicates=False, logger=None):
+        """
+        Inits Experiment class with experimental parameters
 
+        This is the only class you should have to use directly in your program.
+        Instances of Measurement and Replicate objects are created
+        automatically using the provided data files.
+
+        Args:
+            data_files: list containing csv-formatted data files
+            xlim: tuple of float values defining the lower and upper bound for
+                linear fitting of v0
+            do_hill:  boolean to define whether to fit Hill-type kinetics in
+                addition to Michaelis-Menten kinetics. Defaults to False
+            fit_to_replicates: boolean to define wheter to fit to individual
+                replicates instead of the avarage slope. Defaults to False
+            logger: logging.Logger instance. If not given, a new logger is
+                created
+        """
+
+        # check if a logger was handed over; if not, create a new instance
         if logger:
             self.logger = logger
         else:
@@ -189,17 +210,39 @@ class Experiment():
         else:
             self.hill = None
 
-    def plot_data(self, outpath):
-        # iterate over all measurements
-        for m in self.measurements:
-            # plot each measurement
-            m.plot(outpath)
-
     def mm_kinetics_function(self, x, vmax, Km):
+        """
+        Michaelis-Menten function.
+
+        Classical Michaelis-Menten enzyme kinetics function.
+
+        Args:
+            x: concentration at velocity v
+            vmax: maximum velocity
+            Km: Michaelis constant
+
+        Returns:
+            v: velocity at given concentration x
+        """
         v = (vmax*x)/(Km+x)
         return v
 
     def hill_kinetics_function(self, x, vmax, Kprime, h):
+        """
+        Hill function.
+
+        Hill function for enzyme kinetics with cooperativity.
+
+        Args:
+            x: concentration at velocity v
+            vmax: maximum velocity
+            Kprime: kinetics constant related to Michaelis constant
+            h: hill slope; if 1 function is identical to Michaelis-Menten
+                function.
+
+        Returns:
+            v: velocity at given concentration x
+        """
         v = (vmax*(x**h))/(Kprime+(x**h))
         return v
 
