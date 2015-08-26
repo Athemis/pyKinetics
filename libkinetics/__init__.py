@@ -7,7 +7,24 @@ import logging
 import warnings
 
 
+class Error(Exception):
+
+    """
+        Main Error class derived from Exception.
+    """
+    pass
+
+
+class FitError(Error):
+
+    """
+        Exception raised if fitting fails.
+    """
+    pass
+
+
 class Replicate():
+
     """
     Represents a single replicate within a measurement
     """
@@ -66,6 +83,7 @@ class Replicate():
 
 
 class Measurement():
+
     """
     Represents a single measurement within an experiment.
     """
@@ -112,6 +130,7 @@ class Measurement():
 
 
 class Experiment():
+
     """
     Represents the actual experiment.
 
@@ -121,13 +140,17 @@ class Experiment():
     Attributes:
         logger: logging.Logger instance that is used for logging to console
             and log file.
-        measurements: list of individual measurements of the experiment.
+        measurements: array_like
+            list of individual measurements of the experiment.
             Usually defined by different substrate concentrations.
-        fit_to_replicates: whether to fit to individual replicates instead to
-            the average of each measurement.
-        raw_kinetic_data: dictionary storing x, y and std_err of each
-            measurement for fitting kinetic curves.
-        xlim: lower and upper bounds for calculating the v0 linear fit.
+        fit_to_replicates: boolean
+            whether to fit to individual replicates instead to the average of
+            each measurement.
+        raw_kinetic_data: dictionary
+            storing x, y and std_err of each measurement for fitting kinetic
+            curves.
+        xlim: array_like
+            lower and upper bounds for calculating the v0 linear fit.
     """
 
     def __init__(self, data_files, xlim, do_hill=False,
@@ -217,12 +240,16 @@ class Experiment():
         Classical Michaelis-Menten enzyme kinetics function.
 
         Args:
-            x: concentration at velocity v
-            vmax: maximum velocity
-            Km: Michaelis constant
+            x: float
+                concentration at velocity v
+            vmax: float
+                maximum velocity
+            Km: float
+                Michaelis constant
 
         Returns:
-            v: velocity at given concentration x
+            v: float
+                velocity at given concentration x
         """
         v = (vmax*x)/(Km+x)
         return v
@@ -234,23 +261,50 @@ class Experiment():
         Hill function for enzyme kinetics with cooperativity.
 
         Args:
-            x: concentration at velocity v
-            vmax: maximum velocity
-            Kprime: kinetics constant related to Michaelis constant
-            h: hill slope; if 1 function is identical to Michaelis-Menten
-                function.
+            x: float
+                concentration at velocity v.
+            vmax: float
+                maximum velocity.
+            Kprime: float
+                kinetics constant related to Michaelis constant.
+            h: float
+                hill slope; if h=1, Hill function is identical to
+                Michaelis-Menten function.
 
         Returns:
-            v: velocity at given concentration x
+            v: float
+                velocity at given concentration x
         """
         v = (vmax*(x**h))/(Kprime+(x**h))
         return v
 
     def do_mm_kinetics(self):
+        """
+        Calculates Michaelis-Menten kinetics.
+
+        Returns:
+            On success, returns a dictionary containing the kinetic parameters
+            and their errors:
+
+            {'vmax': float,
+             'Km': float,
+             'vmax_err': float,
+             'Km_err': float,
+             'x': array_like}
+
+        Raises:
+            FitError if fitting fails.
+        """
         try:
             popt, pconv = optimize.curve_fit(self.mm_kinetics_function,
                                              self.raw_kinetic_data['x'],
                                              self.raw_kinetic_data['y'])
+        except ValueError:
+            msg = ('Calculation of Michaelis-Menten kinetics failed! Your '
+                   'input data (either x or y) contain empty (NaN) values!')
+            if self.logger:
+                self.logger.error('{}'.format(msg))
+            raise FitError(msg)
 
             perr = np.sqrt(np.diag(pconv))
             vmax = popt[0]
@@ -261,23 +315,41 @@ class Experiment():
             self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
             self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
 
-            return {'vmax': float(vmax),
-                    'Km': float(Km),
-                    'perr': perr,
+            return {'vmax': np.float(vmax),
+                    'Km': np.float(Km),
+                    'vmax_err': np.float(perr[0]),
+                    'Km_err': np.float(perr[1]),
                     'x': x}
-        except:
-            msg = 'Calculation of Michaelis-Menten kinetics failed!'
-            if self.logger:
-                self.logger.error('{}'.format(msg))
-            else:
-                print(msg)
-            return None
 
     def do_hill_kinetics(self):
+        """
+        Calculates Hill kinetics.
+
+        Returns:
+            On success, returns a dictionary containing the kinetic parameters
+            their errors:
+
+            {'vmax': float,
+             'Kprime': float,
+             'vmax_err': float,
+             'Km_prime': float,
+             'h_err': float,
+             'h': float,
+             'x': array_like}
+
+        Raises:
+            FitError if fitting fails.
+        """
         try:
             popt, pconv = optimize.curve_fit(self.hill_kinetics_function,
                                              self.raw_kinetic_data['x'],
                                              self.raw_kinetic_data['y'])
+        except ValueError:
+            msg = ('Calculation of Hill kinetics failed! Your input data '
+                   '(either x or y) contain empty (NaN) values!')
+            if self.logger:
+                self.logger.error('{}'.format(msg))
+            raise FitError(msg)
 
             perr = np.sqrt(np.diag(pconv))
             vmax = popt[0]
@@ -291,15 +363,10 @@ class Experiment():
             self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
             self.logger.info('    h: {} ± {}'.format(h, perr[2]))
 
-            return {'vmax': float(vmax),
-                    'Kprime': float(Kprime),
-                    'perr': perr,
-                    'h': h,
+            return {'vmax': np.float(vmax),
+                    'Kprime': np.float(Kprime),
+                    'vmax_err': np.float(perr[0]),
+                    'Kprime_err': np.float(perr[1]),
+                    'h_err': np.float(perr[2]),
+                    'h': np.float(h),
                     'x': x}
-        except:
-            msg = 'Calculation of Hill kinetics failed!'
-            if self.logger:
-                self.logger.error('{}'.format(msg))
-            else:
-                print(msg)
-            return None
