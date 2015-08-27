@@ -36,6 +36,11 @@ except ImportError:
 
 
 class ExperimentHelper():
+    """
+    Helper class for dealing with results of libkinetics.
+
+    Provides plotting and data output functionality for libkinetics.Experiment.
+    """
 
     def __init__(self, experiment, logger):
         self.exp = experiment
@@ -181,9 +186,14 @@ def parse_arguments():
 
 def initialize_logger():
     """
-    Initialization of logging subsystem. Two logging handlers are brought up:
-    'fh' which logs to a log file and 'ch' which logs to standard output.
-    :return logger: returns a logger instance
+    Initialization of logging subsystem.
+
+    Two logging handlers are brought up: 'fh' which logs to a log file and
+    'ch' which logs to standard output. If colorlog is installed, logging
+    to console will be colored.
+
+    Returns:
+        logger: logging.Logger instance
     """
     if COLORED_LOG:
         fmt = '%(log_color)s%(levelname)-8s%(reset)s %(message)s'
@@ -227,6 +237,11 @@ def initialize_logger():
 
 
 def main():
+    """
+    Main method of pyKinetics.
+
+    Will be executed when analyze-cli.py is started from the command line.
+    """
     # parse command line arguments
     args = parse_arguments()
     # initialize logger
