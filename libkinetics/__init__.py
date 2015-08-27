@@ -1,10 +1,19 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from scipy import stats, optimize
-import numpy as np
 import logging
 import warnings
+import operator
+
+try:
+    import numpy as np
+except ImportError:
+    print('----- NumPy must be installed! -----')
+
+try:
+    from scipy import stats, optimize
+except ImportError:
+    print('----- SciPy must be installed! -----')
 
 
 class Error(Exception):
@@ -128,6 +137,9 @@ class Measurement():
 
         return results
 
+    def get_concentration(self):
+        return self.concentration
+
 
 class Experiment():
 
@@ -142,7 +154,8 @@ class Experiment():
             and log file.
         measurements: array_like
             list of individual measurements of the experiment.
-            Usually defined by different substrate concentrations.
+            Individual measurements are sorted by their substrate
+            concentration.
         fit_to_replicates: boolean
             whether to fit to individual replicates instead to the average of
             each measurement.
@@ -192,12 +205,22 @@ class Experiment():
 
         # parse data files and generate measurements
         for csvfile in data_files:
-            tmp = np.genfromtxt(str(csvfile), comments='#')
-            with open(str(csvfile)) as datafile:
-                head = [next(datafile) for x in range(2)]
+            try:
+                tmp = np.genfromtxt(str(csvfile), comments='#')
+                with open(str(csvfile)) as datafile:
+                    head = [next(datafile) for x in range(2)]
+            except OSError:
+                msg = "Failed reading file {}".format(str(csvfile))
+                self.logger.error(msg)
+                raise
+
             # extract concentration and unit from header
             # TODO: move unit to parameter
-            # TODO: More error-proof header detection
+            # check header for correct number of items
+            if len(head) < 2 or len(head) > 2:
+                msg = 'Parsing header of data files failed! Wrong format?'
+                self.logger.error(msg)
+                raise Error(msg)
             conc = head[0].strip('#').strip()
             unit = head[1].strip('#').strip()
             # split x and y data apart
@@ -208,6 +231,10 @@ class Experiment():
             # create new measurement and append to list
             measurement = Measurement((x, y), conc, unit, self)
             self.measurements.append(measurement)
+
+        # sort measurements by concentration
+        self.measurements = sorted(self.measurements,
+                                   key=operator.attrgetter('concentration'))
 
         # iterate over all measurements
         for m in self.measurements:
@@ -306,20 +333,20 @@ class Experiment():
                 self.logger.error('{}'.format(msg))
             raise FitError(msg)
 
-            perr = np.sqrt(np.diag(pconv))
-            vmax = popt[0]
-            Km = popt[1]
-            x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
+        perr = np.sqrt(np.diag(pconv))
+        vmax = popt[0]
+        Km = popt[1]
+        x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
 
-            self.logger.info('Michaelis-Menten Kinetics:')
-            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
-            self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
+        self.logger.info('Michaelis-Menten Kinetics:')
+        self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+        self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
 
-            return {'vmax': np.float(vmax),
-                    'Km': np.float(Km),
-                    'vmax_err': np.float(perr[0]),
-                    'Km_err': np.float(perr[1]),
-                    'x': x}
+        return {'vmax': np.float(vmax),
+                'Km': np.float(Km),
+                'vmax_err': np.float(perr[0]),
+                'Km_err': np.float(perr[1]),
+                'x': x}
 
     def do_hill_kinetics(self):
         """
@@ -351,22 +378,22 @@ class Experiment():
                 self.logger.error('{}'.format(msg))
             raise FitError(msg)
 
-            perr = np.sqrt(np.diag(pconv))
-            vmax = popt[0]
-            Kprime = popt[1]
-            h = popt[2]
+        perr = np.sqrt(np.diag(pconv))
+        vmax = popt[0]
+        Kprime = popt[1]
+        h = popt[2]
 
-            x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
+        x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
 
-            self.logger.info('Hill Kinetics:')
-            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
-            self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
-            self.logger.info('    h: {} ± {}'.format(h, perr[2]))
+        self.logger.info('Hill Kinetics:')
+        self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+        self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
+        self.logger.info('    h: {} ± {}'.format(h, perr[2]))
 
-            return {'vmax': np.float(vmax),
-                    'Kprime': np.float(Kprime),
-                    'vmax_err': np.float(perr[0]),
-                    'Kprime_err': np.float(perr[1]),
-                    'h_err': np.float(perr[2]),
-                    'h': np.float(h),
-                    'x': x}
+        return {'vmax': np.float(vmax),
+                'Kprime': np.float(Kprime),
+                'vmax_err': np.float(perr[0]),
+                'Kprime_err': np.float(perr[1]),
+                'h_err': np.float(perr[2]),
+                'h': np.float(h),
+                'x': x}
