@@ -17,7 +17,6 @@ except ImportError:
 
 
 class Error(Exception):
-
     """
         Main Error class derived from Exception.
     """
@@ -25,7 +24,6 @@ class Error(Exception):
 
 
 class FitError(Error):
-
     """
         Exception raised if fitting fails.
     """
@@ -33,9 +31,21 @@ class FitError(Error):
 
 
 class Replicate():
-
     """
-    Represents a single replicate within a measurement
+    Represents a single replicate within a measurement.
+
+    Linear regression for v0 is executed at this level.
+
+    Attributes:
+        logger: logging.Logger instance inherited by the owning Measurement.
+        num: float
+            identification number of replicate within the experiment
+        x, y: float
+            time and signal to be analysed.
+        owner: object
+            measurement this measurement belongs to
+        xlim:
+        fitresult:
     """
 
     def __init__(self, num, xy, owner):
@@ -92,9 +102,28 @@ class Replicate():
 
 
 class Measurement():
-
     """
     Represents a single measurement within an experiment.
+
+    Each measurement consists of one ore more replicates and is associated
+    with a specific substrate concentration.
+
+    Attributes:
+        logger: logging.Logger instance inherited by the owning Experiment.
+        concentration: float
+            substrate concentration associated with the measurement.
+        concentration_unit: string
+            unit of the concentration; only used for labeling plots/tables.
+        x, y: float
+            time and signal to be analysed.
+        replicates: array_like
+            list of individual replicates of the measurement.
+        owner: object
+            experiment this measurement belongs to
+        xlim: array_like
+            lower and upper bounds for calculating the v0 linear fit.
+        avg_slope, avg_slope_err: float
+            average slope (v0) of the measurement and its standard deviation
     """
 
     def __init__(self, xy, conc, conc_unit, owner):
@@ -131,18 +160,23 @@ class Measurement():
         self.logger.info('-----')
 
     def get_results(self):
+        """
+        Collect results of the individual replicates.
+
+        Collects results of each replicate and append to results list.
+
+        Returns:
+            results: array_like
+                list of results from each replicate of the measurement.
+        """
         results = []
         for r in self.replicates:
             results.append(r.fitresult)
 
         return results
 
-    def get_concentration(self):
-        return self.concentration
-
 
 class Experiment():
-
     """
     Represents the actual experiment.
 
@@ -373,7 +407,7 @@ class Experiment():
                                              self.raw_kinetic_data['y'])
         except ValueError:
             msg = ('Calculation of Hill kinetics failed! Your input data '
-                   '(either x or y) contain empty (NaN) values!')
+                   '(either x or y) contains empty (NaN) values!')
             if self.logger:
                 self.logger.error('{}'.format(msg))
             raise FitError(msg)
