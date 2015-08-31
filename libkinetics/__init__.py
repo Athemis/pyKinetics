@@ -1,15 +1,51 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from scipy import stats, optimize
-import numpy as np
 import logging
 import warnings
+import operator
+
+try:
+    import numpy as np
+except ImportError:
+    print('----- NumPy must be installed! -----')
+
+try:
+    from scipy import stats, optimize
+except ImportError:
+    print('----- SciPy must be installed! -----')
+
+
+class Error(Exception):
+    """
+        Main Error class derived from Exception.
+    """
+    pass
+
+
+class FitError(Error):
+    """
+        Exception raised if fitting fails.
+    """
+    pass
 
 
 class Replicate():
     """
-    Represents a single replicate within a measurement
+    Represents a single replicate within a measurement.
+
+    Linear regression for v0 is executed at this level.
+
+    Attributes:
+        logger: logging.Logger instance inherited by the owning Measurement.
+        num: float
+            identification number of replicate within the experiment
+        x, y: float
+            time and signal to be analysed.
+        owner: object
+            measurement this measurement belongs to
+        xlim:
+        fitresult:
     """
 
     def __init__(self, num, xy, owner):
@@ -67,6 +103,26 @@ class Replicate():
 class Measurement():
     """
     Represents a single measurement within an experiment.
+
+    Each measurement consists of one ore more replicates and is associated
+    with a specific substrate concentration.
+
+    Attributes:
+        logger: logging.Logger instance inherited by the owning Experiment.
+        concentration: float
+            substrate concentration associated with the measurement.
+        concentration_unit: string
+            unit of the concentration; only used for labeling plots/tables.
+        x, y: float
+            time and signal to be analysed.
+        replicates: array_like
+            list of individual replicates of the measurement.
+        owner: object
+            experiment this measurement belongs to
+        xlim: array_like
+            lower and upper bounds for calculating the v0 linear fit.
+        avg_slope, avg_slope_err: float
+            average slope (v0) of the measurement and its standard deviation
     """
 
     def __init__(self, xy, conc, conc_unit, owner):
@@ -102,6 +158,15 @@ class Measurement():
         self.logger.info('-----')
 
     def get_results(self):
+        """
+        Collect results of the individual replicates.
+
+        Collects results of each replicate and append to results list.
+
+        Returns:
+            results: array_like
+                list of results from each replicate of the measurement.
+        """
         results = []
         for r in self.replicates:
             results.append(r.fitresult)
@@ -113,22 +178,48 @@ class Experiment():
     """
     Represents the actual experiment.
 
-    Consists of several Measurement objects.
+    Representation of a kinetics experiment. It consists of multiple
+    objects of type Measurement.
 
-    Args:
-        data_files: list containing csv-formatted data files
-        xlim: tuple of float values defining the lower and upper bound for
-            linear fitting of v0
-        do_hill:  boolean to define whether to fit Hill-type kinetics in
-            addition to Michaelis-Menten kinetics. Defaults to False
-        fit_to_replicates: boolean to define wheter to fit to individual
-            replicates instead of the avarage slope. Defaults to False
-        logger: logging.Logger instance. If not given, a new logger is created
+    Attributes:
+        logger: logging.Logger instance that is used for logging to console
+            and log file.
+        measurements: array_like
+            list of individual measurements of the experiment.
+            Individual measurements are sorted by their substrate
+            concentration.
+        fit_to_replicates: boolean
+            whether to fit to individual replicates instead to the average of
+            each measurement.
+        raw_kinetic_data: dictionary
+            storing x, y and std_err of each measurement for fitting kinetic
+            curves.
+        xlim: array_like
+            lower and upper bounds for calculating the v0 linear fit.
     """
 
     def __init__(self, data_files, xlim, do_hill=False,
                  fit_to_replicates=False, logger=None):
+        """
+        Inits Experiment class with experimental parameters
 
+        This is the only class you should have to use directly in your program.
+        Instances of Measurement and Replicate objects are created
+        automatically using the provided data files.
+
+        Args:
+            data_files: list containing csv-formatted data files
+            xlim: tuple of float values defining the lower and upper bound for
+                linear fitting of v0
+            do_hill:  boolean to define whether to fit Hill-type kinetics in
+                addition to Michaelis-Menten kinetics. Defaults to False
+            fit_to_replicates: boolean to define wheter to fit to individual
+                replicates instead of the avarage slope. Defaults to False
+            logger: logging.Logger instance. If not given, a new logger is
+                created
+        """
+
+        # check if a logger was handed over; if not, create a new instance
         if logger:
             self.logger = logger
         else:
@@ -144,12 +235,22 @@ class Experiment():
 
         # parse data files and generate measurements
         for csvfile in data_files:
-            tmp = np.genfromtxt(str(csvfile), comments='#')
-            with open(str(csvfile)) as datafile:
-                head = [next(datafile) for x in range(2)]
+            try:
+                tmp = np.genfromtxt(str(csvfile), comments='#')
+                with open(str(csvfile)) as datafile:
+                    head = [next(datafile) for x in range(2)]
+            except OSError:
+                msg = "Failed reading file {}".format(str(csvfile))
+                self.logger.error(msg)
+                raise
+
             # extract concentration and unit from header
             # TODO: move unit to parameter
-            # TODO: More error-proof header detection
+            # check header for correct number of items
+            if len(head) < 2 or len(head) > 2:
+                msg = 'Parsing header of data files failed! Wrong format?'
+                self.logger.error(msg)
+                raise Error(msg)
             conc = head[0].strip('#').strip()
             unit = head[1].strip('#').strip()
             # split x and y data apart
@@ -160,6 +261,10 @@ class Experiment():
             # create new measurement and append to list
             measurement = Measurement((x, y), conc, unit, self)
             self.measurements.append(measurement)
+
+        # sort measurements by concentration
+        self.measurements = sorted(self.measurements,
+                                   key=operator.attrgetter('concentration'))
 
         # iterate over all measurements
         for m in self.measurements:
@@ -185,73 +290,140 @@ class Experiment():
         else:
             self.hill = None
 
-    def plot_data(self, outpath):
-        # iterate over all measurements
-        for m in self.measurements:
-            # plot each measurement
-            m.plot(outpath)
-
     def mm_kinetics_function(self, x, vmax, Km):
+        """
+        Michaelis-Menten function.
+
+        Classical Michaelis-Menten enzyme kinetics function.
+
+        Args:
+            x: float
+                concentration at velocity v
+            vmax: float
+                maximum velocity
+            Km: float
+                Michaelis constant
+
+        Returns:
+            v: float
+                velocity at given concentration x
+        """
         v = (vmax * x) / (Km + x)
         return v
 
     def hill_kinetics_function(self, x, vmax, Kprime, h):
+        """
+        Hill function.
+
+        Hill function for enzyme kinetics with cooperativity.
+
+        Args:
+            x: float
+                concentration at velocity v.
+            vmax: float
+                maximum velocity.
+            Kprime: float
+                kinetics constant related to Michaelis constant.
+            h: float
+                hill slope; if h=1, Hill function is identical to
+                Michaelis-Menten function.
+
+        Returns:
+            v: float
+                velocity at given concentration x
+        """
         v = (vmax * (x ** h)) / (Kprime + (x ** h))
         return v
 
     def do_mm_kinetics(self):
+        """
+        Calculates Michaelis-Menten kinetics.
+
+        Returns:
+            On success, returns a dictionary containing the kinetic parameters
+            and their errors:
+
+            {'vmax': float,
+             'Km': float,
+             'vmax_err': float,
+             'Km_err': float,
+             'x': array_like}
+
+        Raises:
+            FitError if fitting fails.
+        """
         try:
             popt, pconv = optimize.curve_fit(self.mm_kinetics_function,
                                              self.raw_kinetic_data['x'],
                                              self.raw_kinetic_data['y'])
-
-            perr = np.sqrt(np.diag(pconv))
-            vmax = popt[0]
-            Km = popt[1]
-            x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
-
-            self.logger.info('Michaelis-Menten Kinetics:')
-            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
-            self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
-
-            return {'vmax': float(vmax), 'Km': float(Km), 'perr': perr, 'x': x}
-        except:
-            msg = 'Calculation of Michaelis-Menten kinetics failed!'
+        except ValueError:
+            msg = ('Calculation of Michaelis-Menten kinetics failed! Your '
+                   'input data (either x or y) contain empty (NaN) values!')
             if self.logger:
                 self.logger.error('{}'.format(msg))
-            else:
-                print(msg)
-            return None
+            raise FitError(msg)
+
+        perr = np.sqrt(np.diag(pconv))
+        vmax = popt[0]
+        Km = popt[1]
+        x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
+
+        self.logger.info('Michaelis-Menten Kinetics:')
+        self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+        self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
+
+        return {'vmax': np.float(vmax),
+                'Km': np.float(Km),
+                'vmax_err': np.float(perr[0]),
+                'Km_err': np.float(perr[1]),
+                'x': x}
 
     def do_hill_kinetics(self):
+        """
+        Calculates Hill kinetics.
+
+        Returns:
+            On success, returns a dictionary containing the kinetic parameters
+            their errors:
+
+            {'vmax': float,
+             'Kprime': float,
+             'vmax_err': float,
+             'Km_prime': float,
+             'h_err': float,
+             'h': float,
+             'x': array_like}
+
+        Raises:
+            FitError if fitting fails.
+        """
         try:
             popt, pconv = optimize.curve_fit(self.hill_kinetics_function,
                                              self.raw_kinetic_data['x'],
                                              self.raw_kinetic_data['y'])
-
-            perr = np.sqrt(np.diag(pconv))
-            vmax = popt[0]
-            Kprime = popt[1]
-            h = popt[2]
-
-            x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
-
-            self.logger.info('Hill Kinetics:')
-            self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
-            self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
-            self.logger.info('    h: {} ± {}'.format(h, perr[2]))
-
-            return {
-                'vmax': float(vmax),
-                'Kprime': float(Kprime),
-                'perr': perr,
-                'h': h,
-                'x': x
-            }
-        except:
-            msg = 'Calculation of Hill kinetics failed!'
+        except ValueError:
+            msg = ('Calculation of Hill kinetics failed! Your input data '
+                   '(either x or y) contains empty (NaN) values!')
             if self.logger:
                 self.logger.error('{}'.format(msg))
-            else:
-                print(msg)
-            return None
+            raise FitError(msg)
+
+        perr = np.sqrt(np.diag(pconv))
+        vmax = popt[0]
+        Kprime = popt[1]
+        h = popt[2]
+
+        x = np.arange(0, max(self.raw_kinetic_data['x']), 0.0001)
+
+        self.logger.info('Hill Kinetics:')
+        self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
+        self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
+        self.logger.info('    h: {} ± {}'.format(h, perr[2]))
+
+        return {'vmax': np.float(vmax),
+                'Kprime': np.float(Kprime),
+                'vmax_err': np.float(perr[0]),
+                'Kprime_err': np.float(perr[1]),
+                'h_err': np.float(perr[2]),
+                'h': np.float(h),
+                'x': x}

@@ -36,6 +36,11 @@ except ImportError:
 
 
 class ExperimentHelper():
+    """
+    Helper class for dealing with results of libkinetics.
+
+    Provides plotting and data output functionality for libkinetics.Experiment.
+    """
     def __init__(self, experiment, logger):
         self.exp = experiment
         self.logger = logger
@@ -44,9 +49,9 @@ class ExperimentHelper():
         y = slope * x + intercept
         return y
 
-    def plot_data(self, exp, outpath):
+    def plot_data(self, outpath):
         # iterate over all measurements
-        for m in exp.measurements:
+        for m in self.exp.measurements:
             # plot each measurement
             fig, ax = plt.subplots()
             ax.set_xlabel('Time')
@@ -74,7 +79,8 @@ class ExperimentHelper():
                         bbox_inches='tight')
             plt.close(fig)
 
-    def plot_kinetics(self, exp, outpath):
+    def plot_kinetics(self, outpath):
+        exp = self.exp
         fig, ax = plt.subplots()
         ax.set_xlabel('c [mM]')
         ax.set_ylabel('dA/dt [Au/s]')
@@ -101,35 +107,49 @@ class ExperimentHelper():
         plt.savefig('{}/kinetics.png'.format(outpath), bbox_inches='tight')
         plt.close(fig)
 
-    def write_data(self, exp, outpath):
+    def write_data(self, outpath):
+
+        exp = self.exp
 
         with open('{}/results.csv'.format(outpath),
                   'w',
                   newline='\n') as csvfile:
 
             writer = csv.writer(csvfile, dialect='excel-tab')
-            writer.writerow(['# LINEAR FITS'])
+            writer.writerow(['LINEAR FITS'])
             writer.writerow([])
-            writer.writerow(['# concentration', 'avg. slope', 'slope std_err',
-                             'replicates (slope, intercept and r value)'])
+            writer.writerow(['concentration',
+                             'avg. slope',
+                             'slope std_err',
+                             'replicates (slope, intercept and r_squared)'])
             for m in exp.measurements:
                 row = [m.concentration, m.avg_slope, m.avg_slope_err]
                 for r in m.replicates:
                     row.append(r.fitresult['slope'])
                     row.append(r.fitresult['intercept'])
-                    row.append(r.fitresult['r_value'])
+                    row.append(r.fitresult['r_squared'])
                 writer.writerow(row)
 
             writer.writerow([])
             if exp.mm:
-                writer.writerow(['# MICHAELIS-MENTEN KINETICS'])
-                writer.writerow(['# vmax', 'Km'])
-                writer.writerow([exp.mm['vmax'], exp.mm['Km']])
+                self.logger.debug('    Writing Michaelis-Menten results.')
+                writer.writerow(['MICHAELIS-MENTEN KINETICS'])
+                writer.writerow(['', 'value', 'std'])
+                writer.writerow(['vmax', exp.mm['vmax'],
+                                 exp.mm['vmax_err']])
+                writer.writerow(['Kprime', exp.mm['Km'],
+                                 exp.mm['Km_err']])
             if exp.hill:
-                writer.writerow(['# HILL KINETICS'])
-                writer.writerow(['# vmax', 'Kprime', 'h'])
-                writer.writerow([exp.hill['vmax'], exp.hill['Kprime'],
-                                 exp.hill['h']])
+                self.logger.debug('    Writing Hill results.')
+                writer.writerow([])
+                writer.writerow(['HILL KINETICS'])
+                writer.writerow(['', 'value', 'std'])
+                writer.writerow(['vmax', exp.hill['vmax'],
+                                 exp.hill['vmax_err']])
+                writer.writerow(['Kprime', exp.hill['Kprime'],
+                                 exp.hill['Kprime_err']])
+                writer.writerow(['h', exp.hill['h'],
+                                 exp.hill['h_err']])
 
 
 def parse_arguments():
@@ -165,9 +185,14 @@ def parse_arguments():
 
 def initialize_logger():
     """
-    Initialization of logging subsystem. Two logging handlers are brought up:
-    'fh' which logs to a log file and 'ch' which logs to standard output.
-    :return logger: returns a logger instance
+    Initialization of logging subsystem.
+
+    Two logging handlers are brought up: 'fh' which logs to a log file and
+    'ch' which logs to standard output. If colorlog is installed, logging
+    to console will be colored.
+
+    Returns:
+        logger: logging.Logger instance
     """
     if COLORED_LOG:
         fmt = '%(log_color)s%(levelname)-8s%(reset)s %(message)s'
@@ -211,6 +236,11 @@ def initialize_logger():
 
 
 def main():
+    """
+    Main method of pyKinetics.
+
+    Will be executed when analyze-cli.py is started from the command line.
+    """
     # parse command line arguments
     args = parse_arguments()
     # initialize logger
@@ -256,11 +286,11 @@ def main():
                                          fit_to_replicates=fit_to_replicates)
             ehlp = ExperimentHelper(exp, logger)
             logger.info('Plotting linear fits')
-            ehlp.plot_data(exp, str(output_path))
+            ehlp.plot_data(str(output_path))
             logger.info('Plotting kinetic fit(s)')
-            ehlp.plot_kinetics(exp, str(output_path))
+            ehlp.plot_kinetics(str(output_path))
             logger.info('Writing results to results.csv')
-            ehlp.write_data(exp, str(output_path))
+            ehlp.write_data(str(output_path))
             logger.info('Finished!')
         else:
             msg = '{} is not a directory!'.format(input_path)
