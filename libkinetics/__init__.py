@@ -21,8 +21,7 @@ class Replicate():
         self.fitresult = self.fit()
 
     def fit(self):
-        ind_min_max = np.where((self.x >= self.xlim[0]) &
-                               (self.x <= self.xlim[1]))
+        ind_min_max = np.where((self.x >= self.xlim[0]) & (self.x <= self.xlim[1]))
         x_for_fit = np.take(self.x, ind_min_max)
         y_for_fit = np.take(self.y, ind_min_max)
 
@@ -32,12 +31,10 @@ class Replicate():
                                 category=RuntimeWarning,
                                 message='invalid value encountered in sqrt')
 
-        (slope, intercept,
-            r_value,
-            p_value,
-            std_err) = stats.linregress(x_for_fit, y_for_fit)
+        (slope, intercept, r_value, p_value, std_err
+         ) = stats.linregress(x_for_fit, y_for_fit)
 
-        r_squared = r_value**2
+        r_squared = r_value ** 2
         conc = '{} {}'.format(self.owner.concentration,
                               self.owner.concentration_unit)
 
@@ -57,12 +54,14 @@ class Replicate():
                              'value for further calculations!')
         self.logger.info('    intercept: {}'.format(slope))
 
-        return {'slope': slope,
-                'intercept': intercept,
-                'r_value': r_value,
-                'r_squared': r_squared,
-                'p_value': p_value,
-                'std_err': std_err}
+        return {
+            'slope': slope,
+            'intercept': intercept,
+            'r_value': r_value,
+            'r_squared': r_squared,
+            'p_value': p_value,
+            'std_err': std_err
+        }
 
 
 class Measurement():
@@ -86,8 +85,7 @@ class Measurement():
         length_x, num_replicates = self.y.shape
 
         for n in range(num_replicates):
-            self.replicates.append(Replicate(n,
-                                             (self.x, self.y[:, n:n+1]),
+            self.replicates.append(Replicate(n, (self.x, self.y[:, n:n + 1]),
                                              self))
 
         for r in self.replicates:
@@ -141,9 +139,7 @@ class Experiment():
 
         self.fit_to_replicates = fit_to_replicates
         # dictionary to store data for the kinetics calculation
-        self.raw_kinetic_data = {'x': [],
-                                 'y': [],
-                                 'yerr': []}
+        self.raw_kinetic_data = {'x': [], 'y': [], 'yerr': []}
         self.xlim = xlim
 
         # parse data files and generate measurements
@@ -196,11 +192,11 @@ class Experiment():
             m.plot(outpath)
 
     def mm_kinetics_function(self, x, vmax, Km):
-        v = (vmax*x)/(Km+x)
+        v = (vmax * x) / (Km + x)
         return v
 
     def hill_kinetics_function(self, x, vmax, Kprime, h):
-        v = (vmax*(x**h))/(Kprime+(x**h))
+        v = (vmax * (x ** h)) / (Kprime + (x ** h))
         return v
 
     def do_mm_kinetics(self):
@@ -218,10 +214,7 @@ class Experiment():
             self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
             self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
 
-            return {'vmax': float(vmax),
-                    'Km': float(Km),
-                    'perr': perr,
-                    'x': x}
+            return {'vmax': float(vmax), 'Km': float(Km), 'perr': perr, 'x': x}
         except:
             msg = 'Calculation of Michaelis-Menten kinetics failed!'
             if self.logger:
@@ -248,11 +241,13 @@ class Experiment():
             self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
             self.logger.info('    h: {} ± {}'.format(h, perr[2]))
 
-            return {'vmax': float(vmax),
-                    'Kprime': float(Kprime),
-                    'perr': perr,
-                    'h': h,
-                    'x': x}
+            return {
+                'vmax': float(vmax),
+                'Kprime': float(Kprime),
+                'perr': perr,
+                'h': h,
+                'x': x
+            }
         except:
             msg = 'Calculation of Hill kinetics failed!'
             if self.logger:

@@ -36,7 +36,6 @@ except ImportError:
 
 
 class ExperimentHelper():
-
     def __init__(self, experiment, logger):
         self.exp = experiment
         self.logger = logger
@@ -57,18 +56,20 @@ class ExperimentHelper():
             ax.set_title(ax_title)
 
             for r in m.replicates:
-                ax.plot(r.x, r.y, linestyle='None',
-                        marker='o', ms=3, fillstyle='none',
+                ax.plot(r.x,
+                        r.y,
+                        linestyle='None',
+                        marker='o',
+                        ms=3,
+                        fillstyle='none',
                         label='replicate #{}'.format(r.num))
-                y = self.linear_regression_function(r.fitresult['slope'],
-                                                    r.x,
+                y = self.linear_regression_function(r.fitresult['slope'], r.x,
                                                     r.fitresult['intercept'])
                 ax.plot(r.x, y, 'k-')
                 ax.axvspan(m.xlim[0], m.xlim[1], facecolor='0.8', alpha=0.5)
 
             plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-            plt.savefig('{}/fit_{}_{}.png'.format(outpath,
-                                                  m.concentration,
+            plt.savefig('{}/fit_{}_{}.png'.format(outpath, m.concentration,
                                                   m.concentration_unit),
                         bbox_inches='tight')
             plt.close(fig)
@@ -82,18 +83,18 @@ class ExperimentHelper():
         ax.errorbar(exp.raw_kinetic_data['x'],
                     exp.raw_kinetic_data['y'],
                     yerr=exp.raw_kinetic_data['yerr'],
-                    fmt='ok', ms=3, fillstyle='none', label="Data with error")
+                    fmt='ok',
+                    ms=3,
+                    fillstyle='none',
+                    label="Data with error")
 
         if exp.mm:
-            y = exp.mm_kinetics_function(exp.mm['x'],
-                                         exp.mm['vmax'],
+            y = exp.mm_kinetics_function(exp.mm['x'], exp.mm['vmax'],
                                          exp.mm['Km'])
             ax.plot(exp.mm['x'], y, 'b-', label="Michaelis-Menten")
         if exp.hill:
-            y = exp.hill_kinetics_function(exp.hill['x'],
-                                           exp.hill['vmax'],
-                                           exp.hill['Kprime'],
-                                           exp.hill['h'])
+            y = exp.hill_kinetics_function(exp.hill['x'], exp.hill['vmax'],
+                                           exp.hill['Kprime'], exp.hill['h'])
             ax.plot(exp.hill['x'], y, 'g-', label="Hill")
 
         ax.legend(loc='best', fancybox=True)
@@ -109,9 +110,7 @@ class ExperimentHelper():
             writer = csv.writer(csvfile, dialect='excel-tab')
             writer.writerow(['# LINEAR FITS'])
             writer.writerow([])
-            writer.writerow(['# concentration',
-                             'avg. slope',
-                             'slope std_err',
+            writer.writerow(['# concentration', 'avg. slope', 'slope std_err',
                              'replicates (slope, intercept and r value)'])
             for m in exp.measurements:
                 row = [m.concentration, m.avg_slope, m.avg_slope_err]
@@ -151,9 +150,7 @@ def parse_arguments():
     parser.add_argument('start',
                         type=np.float64,
                         help='start of fitting window')
-    parser.add_argument('end',
-                        type=np.float64,
-                        help='end of fitting window')
+    parser.add_argument('end', type=np.float64, help='end of fitting window')
     parser.add_argument('input',
                         type=str,
                         help='directory containing input files in csv format')
@@ -177,18 +174,18 @@ def initialize_logger():
         formatter = ColoredFormatter(fmt,
                                      datefmt=None,
                                      reset=True,
-                                     log_colors={'DEBUG': 'cyan',
-                                                 'INFO': 'green',
-                                                 'WARNING': 'yellow',
-                                                 'ERROR': 'red',
-                                                 'CRITICAL': 'red,bg_white'},
+                                     log_colors={
+                                         'DEBUG': 'cyan',
+                                         'INFO': 'green',
+                                         'WARNING': 'yellow',
+                                         'ERROR': 'red',
+                                         'CRITICAL': 'red,bg_white'
+                                     },
                                      secondary_log_colors={},
                                      style='%')
     else:
         fmt = '%(levelname)-8s%(message)s'
-        formatter = logging.Formatter(fmt,
-                                      datefmt=None,
-                                      style='%')
+        formatter = logging.Formatter(fmt, datefmt=None, style='%')
 
     logging.captureWarnings(True)
     logger = logging.getLogger('pyKinetics-cli')
@@ -273,6 +270,7 @@ def main():
         msg = '{} is not a directory!'.format(output_path)
         logger.critical('CRITICAL: '.format(msg))
         raise ValueError(msg)
+
 
 if __name__ == "__main__":
     main()
