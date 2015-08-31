@@ -372,11 +372,13 @@ class Experiment():
         self.logger.info('    v_max: {} ± {}'.format(vmax, perr[0]))
         self.logger.info('    Km: {} ± {}'.format(Km, perr[1]))
 
-        return {'vmax': np.float(vmax),
-                'Km': np.float(Km),
-                'vmax_err': np.float(perr[0]),
-                'Km_err': np.float(perr[1]),
-                'x': x}
+        return {
+            'vmax': np.float(vmax),
+            'Km': np.float(Km),
+            'vmax_err': np.float(perr[0]),
+            'Km_err': np.float(perr[1]),
+            'x': x
+        }
 
     def do_hill_kinetics(self):
         """
@@ -420,10 +422,12 @@ class Experiment():
         self.logger.info('    K_prime: {} ± {}'.format(Kprime, perr[1]))
         self.logger.info('    h: {} ± {}'.format(h, perr[2]))
 
-        return {'vmax': np.float(vmax),
-                'Kprime': np.float(Kprime),
-                'vmax_err': np.float(perr[0]),
-                'Kprime_err': np.float(perr[1]),
-                'h_err': np.float(perr[2]),
-                'h': np.float(h),
-                'x': x}
+        return {
+            'vmax': np.float(vmax),
+            'Kprime': np.float(Kprime),
+            'vmax_err': np.float(perr[0]),
+            'Kprime_err': np.float(perr[1]),
+            'h_err': np.float(perr[2]),
+            'h': np.float(h),
+            'x': x
+        }

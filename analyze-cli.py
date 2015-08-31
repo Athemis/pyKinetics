@@ -41,6 +41,7 @@ class ExperimentHelper():
 
     Provides plotting and data output functionality for libkinetics.Experiment.
     """
+
     def __init__(self, experiment, logger):
         self.exp = experiment
         self.logger = logger
@@ -118,9 +119,7 @@ class ExperimentHelper():
             writer = csv.writer(csvfile, dialect='excel-tab')
             writer.writerow(['LINEAR FITS'])
             writer.writerow([])
-            writer.writerow(['concentration',
-                             'avg. slope',
-                             'slope std_err',
+            writer.writerow(['concentration', 'avg. slope', 'slope std_err',
                              'replicates (slope, intercept and r_squared)'])
             for m in exp.measurements:
                 row = [m.concentration, m.avg_slope, m.avg_slope_err]
@@ -135,21 +134,18 @@ class ExperimentHelper():
                 self.logger.debug('    Writing Michaelis-Menten results.')
                 writer.writerow(['MICHAELIS-MENTEN KINETICS'])
                 writer.writerow(['', 'value', 'std'])
-                writer.writerow(['vmax', exp.mm['vmax'],
-                                 exp.mm['vmax_err']])
-                writer.writerow(['Kprime', exp.mm['Km'],
-                                 exp.mm['Km_err']])
+                writer.writerow(['vmax', exp.mm['vmax'], exp.mm['vmax_err']])
+                writer.writerow(['Kprime', exp.mm['Km'], exp.mm['Km_err']])
             if exp.hill:
                 self.logger.debug('    Writing Hill results.')
                 writer.writerow([])
                 writer.writerow(['HILL KINETICS'])
                 writer.writerow(['', 'value', 'std'])
                 writer.writerow(['vmax', exp.hill['vmax'],
-                                 exp.hill['vmax_err']])
+                                exp.hill['vmax_err']])
                 writer.writerow(['Kprime', exp.hill['Kprime'],
                                  exp.hill['Kprime_err']])
-                writer.writerow(['h', exp.hill['h'],
-                                 exp.hill['h_err']])
+                writer.writerow(['h', exp.hill['h'], exp.hill['h_err']])
 
 
 def parse_arguments():
