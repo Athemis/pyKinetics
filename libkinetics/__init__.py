@@ -49,6 +49,16 @@ class Replicate():
     """
 
     def __init__(self, num, xy, owner):
+        """
+        Inits Replicate class with provided data.
+
+        Args:
+            logger: logging.Logger instance inherited by the owning Experiment.
+        xy: tuple of floats
+            time and signal to be analysed.
+        owner: object
+            measurement this measurement belongs to
+        """
         self.logger = owner.logger
         self.num = num + 1
         self.x, self.y = xy
@@ -57,7 +67,8 @@ class Replicate():
         self.fitresult = self.fit()
 
     def fit(self):
-        ind_min_max = np.where((self.x >= self.xlim[0]) & (self.x <= self.xlim[1]))
+        ind_min_max = np.where((self.x >= self.xlim[0]) & (self.x <=
+                                                           self.xlim[1]))
         x_for_fit = np.take(self.x, ind_min_max)
         y_for_fit = np.take(self.y, ind_min_max)
 
@@ -126,6 +137,22 @@ class Measurement():
     """
 
     def __init__(self, xy, conc, conc_unit, owner):
+        """
+        Inits Measurement class with provided data.
+
+        This is usually called from within an Experiment object.
+
+        Args:
+            logger: logging.Logger instance inherited by the owning Experiment.
+        concentration: float
+            substrate concentration associated with the measurement.
+        concentration_unit: string
+            unit of the concentration; only used for labeling plots/tables.
+        xy: tuple of floats
+            time and signal to be analysed.
+        owner: object
+            experiment this measurement belongs to
+        """
         self.logger = owner.logger
         self.concentration = float(conc)
         self.concentration_unit = conc_unit

@@ -141,8 +141,8 @@ class ExperimentHelper():
                 writer.writerow([])
                 writer.writerow(['HILL KINETICS'])
                 writer.writerow(['', 'value', 'std'])
-                writer.writerow(['vmax', exp.hill['vmax'],
-                                exp.hill['vmax_err']])
+                writer.writerow(['vmax', exp.hill['vmax'], exp.hill['vmax_err']
+                                 ])
                 writer.writerow(['Kprime', exp.hill['Kprime'],
                                  exp.hill['Kprime_err']])
                 writer.writerow(['h', exp.hill['h'], exp.hill['h_err']])
