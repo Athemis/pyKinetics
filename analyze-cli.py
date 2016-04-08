@@ -42,9 +42,12 @@ class ExperimentHelper():
     Provides plotting and data output functionality for libkinetics.Experiment.
     """
 
-    def __init__(self, experiment, logger):
+    def __init__(self, experiment, logger, unit, logx=False, logy=False):
         self.exp = experiment
         self.logger = logger
+        self.logx = logx
+        self.logy = logy
+        self.unit = unit
 
     def linear_regression_function(self, slope, x, intercept):
         y = slope * x + intercept
@@ -83,9 +86,14 @@ class ExperimentHelper():
     def plot_kinetics(self, outpath):
         exp = self.exp
         fig, ax = plt.subplots()
-        ax.set_xlabel('c [mM]')
+        ax.set_xlabel('c [{}]'.format(self.unit))
         ax.set_ylabel('dA/dt [Au/s]')
         ax.set_title('Kinetics')
+        
+        if self.logx:
+            ax.set_xscale('log')
+        if self.logy:
+            ax.set_yscale('log')
 
         ax.errorbar(exp.raw_kinetic_data['x'],
                     exp.raw_kinetic_data['y'],
@@ -159,10 +167,22 @@ def parse_arguments():
                         '--replicates',
                         action='store_true',
                         help='fit kinetics to individual replicates')
+    parser.add_argument('-nm',
+                        '--no-michaelis',
+                        action='store_true',
+                        help='do not compute michaelis-menten kinetics')
     parser.add_argument('-wh',
                         '--hill',
                         action='store_true',
                         help='compute additional kinetics using Hill equation')
+    parser.add_argument('-lx',
+                        '--log-x',
+                        action='store_true',
+                        help='x axis in kinetics is log-scaled')
+    parser.add_argument('-ly',
+                        '--log-y',
+                        action='store_true',
+                        help='y axis in kinetics is log-scaled')
     parser.add_argument('start',
                         type=np.float64,
                         help='start of fitting window')
@@ -173,6 +193,9 @@ def parse_arguments():
     parser.add_argument('output',
                         type=str,
                         help='results will be written to this directory')
+    parser.add_argument('unit',
+                        type=str,
+                        help='unit of concentrations')
 
     args = parser.parse_args()
 
@@ -243,6 +266,21 @@ def main():
     logger = initialize_logger()
     # grab fitting window from provided arguments
     fitting_window = (args.start, args.end)
+    
+    if args.log_x:
+        logx = args.log_x
+    else:
+        logx = False
+        
+    if args.log_y:
+        logy = args.log_y
+    else:
+        logy = False
+    
+    if args.no_michaelis:
+        no_mm = args.no_michaelis
+    else:
+        no_mm = False
 
     if args.hill:
         do_hill = args.hill
@@ -278,9 +316,10 @@ def main():
             exp = libkinetics.Experiment(data_files,
                                          fitting_window,
                                          do_hill=do_hill,
+                                         no_mm=no_mm,
                                          logger=logger,
                                          fit_to_replicates=fit_to_replicates)
-            ehlp = ExperimentHelper(exp, logger)
+            ehlp = ExperimentHelper(exp, logger, args.unit, logx=logx, logy=logy)
             logger.info('Plotting linear fits')
             ehlp.plot_data(str(output_path))
             logger.info('Plotting kinetic fit(s)')

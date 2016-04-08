@@ -225,7 +225,7 @@ class Experiment():
             lower and upper bounds for calculating the v0 linear fit.
     """
 
-    def __init__(self, data_files, xlim, do_hill=False,
+    def __init__(self, data_files, xlim, do_hill=False, no_mm=False,
                  fit_to_replicates=False, logger=None):
         """
         Inits Experiment class with experimental parameters
@@ -240,6 +240,8 @@ class Experiment():
                 linear fitting of v0
             do_hill:  boolean to define whether to fit Hill-type kinetics in
                 addition to Michaelis-Menten kinetics. Defaults to False
+            no_mm: boolean to define whether the calculation of Michaelis-Menten
+                kinetics is supressed. Defaults to False
             fit_to_replicates: boolean to define wheter to fit to individual
                 replicates instead of the avarage slope. Defaults to False
             logger: logging.Logger instance. If not given, a new logger is
@@ -311,7 +313,10 @@ class Experiment():
                 self.raw_kinetic_data['yerr'].append(m.avg_slope_err)
 
         # calculate kinetics
-        self.mm = self.do_mm_kinetics()
+        if not no_mm:
+            self.mm = self.do_mm_kinetics()
+        else:
+            self.mm = None
         if do_hill:
             self.hill = self.do_hill_kinetics()
         else:
