@@ -4,6 +4,7 @@
 import argparse
 import logging
 import csv
+import sys
 from pathlib import Path
 
 # check for third party modules. Matplotlib and NumPy are essential
@@ -25,7 +26,7 @@ except ImportError:
     COLORED_LOG = False
     print('----- Module colorlog not found. Console output will not be '
           'colored! -----')
-    pass
+    sys.exc_clear()
 
 # check for libkinetics; if not found, there is something wrong with the
 # installation if pyKinetics
@@ -338,7 +339,7 @@ def main():
             raise ValueError(msg)
     else:
         msg = '{} is not a directory!'.format(output_path)
-        logger.critical('CRITICAL: '.format(msg))
+        logger.critical('CRITICAL: {}'.format(msg))
         raise ValueError(msg)
 
 
