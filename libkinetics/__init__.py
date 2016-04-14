@@ -82,22 +82,28 @@ class Replicate():
          ) = stats.linregress(x_for_fit, y_for_fit)
 
         r_squared = r_value ** 2
+        
+        n = len(x_for_fit[0]) #  number of observations
+        k = 2  # independent variables: slope and intercept
+        
+        # calculcate adjusted R²
+        adj_r_squared = r_squared - (1 - r_squared) * k/(n - k - 1)
+        
         conc = '{} {}'.format(self.owner.concentration,
                               self.owner.concentration_unit)
 
         self.logger.info('Linear fit for {} #{}:'.format(conc, self.num))
-        if r_squared < 0.9 and r_squared > 0.7:
-            msg = '    r-squared: {} < 0.9; Check fit manually!'
-            self.logger.warning(msg.format(round(r_squared, 4)))
-        elif r_squared < 0.7:
-            msg = '    r-squared: {} < 0.7; Linear fit probably failed!'
-            self.logger.warning(msg.format(round(r_squared, 4)))
-        else:
-            msg = '    r-squared: {}'
-            self.logger.info(msg.format(round(r_squared, 4)))
+        if adj_r_squared < 0.9 and adj_r_squared > 0.7:
+            msg = '    adjusted R² < 0.9; Check fit manually!'
+            self.logger.warning(msg.format(round(adj_r_squared, 4)))
+        elif adj_r_squared < 0.7:
+            msg = '    adjusted R² < 0.7; Linear fit probably failed!'
+            self.logger.warning(msg.format(round(adj_r_squared, 4)))
+            
+        self.logger.info('    R²/adjusted R²: {}/{}'.format(round(r_squared, 4), round(adj_r_squared, 4)))
         self.logger.info('    slope: {}'.format(slope))
         if slope < 0:
-            self.logger.info('    Slope is negative. Will use absolute '
+            self.logger.info('    → Slope is negative. Will use absolute '
                              'value for further calculations!')
         self.logger.info('    intercept: {}'.format(slope))
 

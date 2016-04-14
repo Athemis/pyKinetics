@@ -267,6 +267,7 @@ def main():
     # grab fitting window from provided arguments
     fitting_window = (args.start, args.end)
     
+    # scaling of axes in kinetics plot
     if args.log_x:
         logx = args.log_x
     else:
@@ -276,17 +277,21 @@ def main():
         logy = args.log_y
     else:
         logy = False
-    
+        
+    # suppress calculation of Michaelis-Menten kinetics
     if args.no_michaelis:
         no_mm = args.no_michaelis
     else:
         no_mm = False
 
+    # do Hill kinetics
     if args.hill:
         do_hill = args.hill
     else:
         do_hill = False
 
+    # perform global fit of kinetic function(s) to all replicates
+    # instead of their means
     if args.replicates:
         fit_to_replicates = args.replicates
     else:
