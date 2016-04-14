@@ -82,7 +82,7 @@ class Replicate():
          ) = stats.linregress(x_for_fit, y_for_fit)
 
         r_squared = r_value ** 2
-        
+
         n = len(x_for_fit[0]) #  number of observations
         k = 2  # independent variables: slope and intercept
         
@@ -328,7 +328,8 @@ class Experiment():
         else:
             self.hill = None
 
-    def mm_kinetics_function(self, x, vmax, Km):
+    @staticmethod
+    def mm_kinetics_function(x, vmax, Km):
         """
         Michaelis-Menten function.
 
@@ -349,7 +350,8 @@ class Experiment():
         v = (vmax * x) / (Km + x)
         return v
 
-    def hill_kinetics_function(self, x, vmax, Kprime, h):
+    @staticmethod
+    def hill_kinetics_function(x, vmax, Kprime, h):
         """
         Hill function.
 
