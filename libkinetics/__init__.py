@@ -64,7 +64,38 @@ class Replicate():
         self.x, self.y = xy
         self.owner = owner
         self.xlim = owner.xlim
-        self.fitresult = self.fit()
+        self.conc = '{} {}'.format(self.owner.concentration,
+                                   self.owner.concentration_unit)
+        if not self.owner.owner.end_point:
+            self.fitresult = self.fit()
+        else:
+            self.fitresult = self.end_point_determination()
+            
+            
+    def end_point_determination(self):
+        ind_min_max = np.where((self.x >= self.xlim[0]) & (self.x <=
+                                                           self.xlim[1]))[0]
+        x_start = self.x[ind_min_max[0]]
+        x_end = self.x[ind_min_max[-1]]
+        
+        y_start = self.y[ind_min_max[0]]
+        y_end = self.y[ind_min_max[-1]]
+        
+        slope = (y_end - y_start) / (x_end - x_start)
+        
+        self.logger.info('End point determination for {} #{}:'.format(self.conc, self.num))
+        self.logger.info('    start x/y: {}/{}'.format(x_start, float(y_start)))
+        self.logger.info('    end x/y: {}/{}'.format(x_end, float(y_end)))
+        self.logger.info('    slope: {}'.format(float(slope)))
+        
+        return {
+            'slope': slope,
+            'intercept': None,
+            'r_value': None,
+            'r_squared': None,
+            'p_value': None,
+            'std_err': None
+        }
 
     def fit(self):
         ind_min_max = np.where((self.x >= self.xlim[0]) & (self.x <=
@@ -88,11 +119,8 @@ class Replicate():
         
         # calculcate adjusted R²
         adj_r_squared = r_squared - (1 - r_squared) * k/(n - k - 1)
-        
-        conc = '{} {}'.format(self.owner.concentration,
-                              self.owner.concentration_unit)
 
-        self.logger.info('Linear fit for {} #{}:'.format(conc, self.num))
+        self.logger.info('Linear fit for {} #{}:'.format(self.conc, self.num))
         if adj_r_squared < 0.9 and adj_r_squared > 0.7:
             msg = '    adjusted R² < 0.9; Check fit manually!'
             self.logger.warning(msg.format(round(adj_r_squared, 4)))
@@ -232,7 +260,7 @@ class Experiment():
     """
 
     def __init__(self, data_files, xlim, do_hill=False, no_mm=False,
-                 fit_to_replicates=False, logger=None):
+                 fit_to_replicates=False, logger=None, end_point=False):
         """
         Inits Experiment class with experimental parameters
 
@@ -267,6 +295,8 @@ class Experiment():
         # dictionary to store data for the kinetics calculation
         self.raw_kinetic_data = {'x': [], 'y': [], 'yerr': []}
         self.xlim = xlim
+        
+        self.end_point = end_point
 
         # parse data files and generate measurements
         for csvfile in data_files:
@@ -317,6 +347,7 @@ class Experiment():
                 self.raw_kinetic_data['x'].append(m.concentration)
                 self.raw_kinetic_data['y'].append(np.absolute(m.avg_slope))
                 self.raw_kinetic_data['yerr'].append(m.avg_slope_err)
+                
 
         # calculate kinetics
         if not no_mm:

@@ -49,6 +49,8 @@ class ExperimentHelper():
         self.logx = logx
         self.logy = logy
         self.unit = unit
+        
+        self.colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
 
     def linear_regression_function(self, slope, x, intercept):
         y = slope * x + intercept
@@ -64,19 +66,28 @@ class ExperimentHelper():
             ax_title = 'Linear regression {} {}'.format(m.concentration,
                                                         m.concentration_unit)
             ax.set_title(ax_title)
-
+            
+            color_index = 0
+            
             for r in m.replicates:
+                # TODO: If number of colors exceeds predefined colors, calculate a proper palette
+                if color_index < len(self.colors):
+                    color = self.colors[color_index]
+                else:
+                    color = 'k'
                 ax.plot(r.x,
                         r.y,
+                        '{}o'.format(color),
                         linestyle='None',
-                        marker='o',
                         ms=3,
                         fillstyle='none',
                         label='replicate #{}'.format(r.num))
                 y = self.linear_regression_function(r.fitresult['slope'], r.x,
                                                     r.fitresult['intercept'])
-                ax.plot(r.x, y, 'k-')
+                ax.plot(r.x, y, '{}-'.format(color), label='linear fit #{}'.format(r.num))
                 ax.axvspan(m.xlim[0], m.xlim[1], facecolor='0.8', alpha=0.5)
+                
+                color_index += 1
 
             plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
             plt.savefig('{}/fit_{}_{}.png'.format(outpath, m.concentration,
@@ -92,9 +103,24 @@ class ExperimentHelper():
         ax.set_title('Kinetics')
         
         if self.logx:
+            if 0 in exp.raw_kinetic_data['x']:
+                index = exp.raw_kinetic_data['x'].index(0)
+                exp.raw_kinetic_data['x'].pop(index)
+                exp.raw_kinetic_data['y'].pop(index)
+                exp.raw_kinetic_data['yerr'].pop(index)
+                self.logger.warn('    Data in x contains zero values.')
             ax.set_xscale('log')
+                
         if self.logy:
+            if 0 in exp.raw_kinetic_data['y']:
+
+                index = exp.raw_kinetic_data['y'].index(0)
+                exp.raw_kinetic_data['x'].pop(index)
+                exp.raw_kinetic_data['y'].pop(index)
+                exp.raw_kinetic_data['yerr'](index)
+                self.logger.warn('    Data in y contains zero values.')
             ax.set_yscale('log')
+                
 
         ax.errorbar(exp.raw_kinetic_data['x'],
                     exp.raw_kinetic_data['y'],
@@ -168,6 +194,10 @@ def parse_arguments():
                         '--replicates',
                         action='store_true',
                         help='fit kinetics to individual replicates')
+    parser.add_argument('-ep',
+                        '--end-point',
+                        action='store_true',
+                        help='use end point determination instead of linear fit')
     parser.add_argument('-nm',
                         '--no-michaelis',
                         action='store_true',
@@ -268,6 +298,12 @@ def main():
     # grab fitting window from provided arguments
     fitting_window = (args.start, args.end)
     
+    # use end point determination
+    if args.end_point:
+        end_point = args.end_point
+    else:
+        end_point = False
+    
     # scaling of axes in kinetics plot
     if args.log_x:
         logx = args.log_x
@@ -321,17 +357,19 @@ def main():
             logger.info('{}'.format(msg))
             exp = libkinetics.Experiment(data_files,
                                          fitting_window,
+                                         end_point=end_point,
                                          do_hill=do_hill,
                                          no_mm=no_mm,
                                          logger=logger,
                                          fit_to_replicates=fit_to_replicates)
             ehlp = ExperimentHelper(exp, logger, args.unit, logx=logx, logy=logy)
-            logger.info('Plotting linear fits')
-            ehlp.plot_data(str(output_path))
-            logger.info('Plotting kinetic fit(s)')
-            ehlp.plot_kinetics(str(output_path))
+            if not end_point:
+                logger.info('Plotting linear fits')
+                ehlp.plot_data(str(output_path))
             logger.info('Writing results to results.csv')
             ehlp.write_data(str(output_path))
+            logger.info('Plotting kinetic fit(s)')
+            ehlp.plot_kinetics(str(output_path))
             logger.info('Finished!')
         else:
             msg = '{} is not a directory!'.format(input_path)
